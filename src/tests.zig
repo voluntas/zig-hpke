@@ -17,84 +17,173 @@ test "hpke" {
     var info: [info_hex.len / 2]u8 = undefined;
     _ = try fmt.hexToBytes(&info, info_hex);
 
-    const server_seed_hex = "29e5fcb544130784b7606e3160d736309d63e044c241d4461a9c9d2e9362f1db";
+    const server_seed_hex = "6db9df30aa07dd42ee5e8181afdb977e538f5e1fec8a06223f33f7013e525037";
     var server_seed: [server_seed_hex.len / 2]u8 = undefined;
     _ = try fmt.hexToBytes(&server_seed, server_seed_hex);
-    var server_kp = try suite.deterministicKeyPair(&server_seed);
+    var server_kp = try suite.deriveKeyPair(&server_seed);
 
     var expected: [32]u8 = undefined;
-    _ = try fmt.hexToBytes(&expected, "ad5e716159a11fdb33527ce98fe39f24ae3449ffb6e93e8911f62c0e9781718a");
+    _ = try fmt.hexToBytes(&expected, "4612c550263fc8ad58375df3f557aac531d26850903e55a9f23f21d8534e8ac8");
     try testing.expectEqualSlices(u8, &expected, server_kp.secret_key.slice());
-    _ = try fmt.hexToBytes(&expected, "46570dfa9f66e17c38e7a081c65cf42bc00e6fed969d326c692748ae866eac6f");
+    _ = try fmt.hexToBytes(&expected, "3948cfe0ad1ddb695d780e59077195da6c56506b027329794ab02bca80815c4d");
     try testing.expectEqualSlices(u8, &expected, server_kp.public_key.slice());
 
-    const client_seed_hex = "3b8ed55f38545e6ea459b6838280b61ff4f5df2a140823373380609fb6c68933";
+    const client_seed_hex = "7268600d403fce431561aef583ee1613527cff655c1343f29812e66706df3234";
     var client_seed: [client_seed_hex.len / 2]u8 = undefined;
     _ = try fmt.hexToBytes(&client_seed, client_seed_hex);
-    var client_kp = try suite.deterministicKeyPair(&client_seed);
+    var client_kp = try suite.deriveKeyPair(&client_seed);
     _ = client_kp;
 
     var client_ctx_and_encapsulated_secret = try suite.createClientContext(server_kp.public_key.slice(), &info, null, &client_seed);
     var encapsulated_secret = client_ctx_and_encapsulated_secret.encapsulated_secret;
-    _ = try fmt.hexToBytes(&expected, "e7d9aa41faa0481c005d1343b26939c0748a5f6bf1f81fbd1a4e924bf0719149");
+    _ = try fmt.hexToBytes(&expected, "37fda3567bdbd628e88668c3c8d7e97d1d1253b6d4ea6d44c150f741f1bf4431");
     try testing.expectEqualSlices(u8, &expected, encapsulated_secret.encapsulated.constSlice());
+    _ = try fmt.hexToBytes(&expected, "fe0e18c9f024ce43799ae393c7e8fe8fce9d218875e8227b0187c04e7d2ea1fc");
+    try testing.expectEqualSlices(u8, &expected, encapsulated_secret.secret.constSlice());
 
     var client_ctx = client_ctx_and_encapsulated_secret.client_ctx;
-    _ = try fmt.hexToBytes(&expected, "d27ca8c6ce9d8998f3692613c29e5ae0b064234b874a52d65a014eeffed429b9");
-    try testing.expectEqualSlices(u8, &expected, client_ctx.exporterSecret().constSlice());
 
-    var server_ctx = try suite.createServerContext(encapsulated_secret.encapsulated.constSlice(), server_kp, &info, null);
+    var key = client_ctx.ctx.outbound_state.?.key;
+    _ = try fmt.hexToBytes(&expected, "4531685d41d65f03dc48f6b8302c05b0");
+    try testing.expectEqualSlices(u8, expected[0..key.len], key.constSlice());
 
-    const message = "message";
-    const ad = "ad";
+    var base_nonce = client_ctx.ctx.outbound_state.?.base_nonce;
+    _ = try fmt.hexToBytes(&expected, "56d890e5accaaf011cff4b7d");
+    try testing.expectEqualSlices(u8, expected[0..base_nonce.len], base_nonce.constSlice());
+
+    // var counter = client_ctx.ctx.outbound_state.?.counter;
+    // std.debug.print("{s}\n", .{std.fmt.fmtSliceHexLower(counter.constSlice())});
+
+    // sequence number: 0
+    // pt: 4265617574792069732074727574682c20747275746820626561757479
+    // aad: 436f756e742d30
+    // nonce: 56d890e5accaaf011cff4b7d
+    // ct: f938558b5d72f1a23810b4be2ab4f84331acc02fc97babc53a52ae8218a355a9
+    // 6d8770ac83d07bea87e13c512a
+    var message: [29]u8 = undefined;
+    _ = try fmt.hexToBytes(&message, "4265617574792069732074727574682c20747275746820626561757479");
+    var ad: [7]u8 = undefined;
+    _ = try fmt.hexToBytes(&ad, "436f756e742d30");
     var ciphertext: [max_aead_tag_length + message.len]u8 = undefined;
-    client_ctx.encryptToServer(&ciphertext, message, ad);
-    _ = try fmt.hexToBytes(&expected, "dc54a1124854e041089e52066349a238380aaf6bf98a4c");
-    try testing.expectEqualSlices(u8, expected[0..ciphertext.len], &ciphertext);
+    client_ctx.encryptToServer(&ciphertext, &message, &ad);
+    var ct: [45]u8 = undefined;
+    _ = try fmt.hexToBytes(&ct, "f938558b5d72f1a23810b4be2ab4f84331acc02fc97babc53a52ae8218a355a96d8770ac83d07bea87e13c512a");
+    try testing.expectEqualSlices(u8, &ct, &ciphertext);
 
-    var message2: [message.len]u8 = undefined;
-    try server_ctx.decryptFromClient(&message2, &ciphertext, ad);
-    try testing.expectEqualSlices(u8, message[0..], message2[0..]);
+    // sequence number: 1
+    // pt: 4265617574792069732074727574682c20747275746820626561757479
+    // aad: 436f756e742d31
+    // nonce: 56d890e5accaaf011cff4b7c
+    // ct: af2d7e9ac9ae7e270f46ba1f975be53c09f8d875bdc8535458c2494e8a6eab25
+    // 1c03d0c22a56b8ca42c2063b84
+    _ = try fmt.hexToBytes(&message, "4265617574792069732074727574682c20747275746820626561757479");
+    _ = try fmt.hexToBytes(&ad, "436f756e742d31");
+    client_ctx.encryptToServer(&ciphertext, &message, &ad);
+    _ = try fmt.hexToBytes(&ct, "af2d7e9ac9ae7e270f46ba1f975be53c09f8d875bdc8535458c2494e8a6eab251c03d0c22a56b8ca42c2063b84");
+    try testing.expectEqualSlices(u8, &ct, &ciphertext);
 
-    client_ctx.encryptToServer(&ciphertext, message, ad);
-    _ = try fmt.hexToBytes(&expected, "37fbdf5f21e77f15291212fe94579054f56eaf5e78f2b5");
-    try testing.expectEqualSlices(u8, expected[0..ciphertext.len], &ciphertext);
+    // sequence number: 2
+    // pt: 4265617574792069732074727574682c20747275746820626561757479
+    // aad: 436f756e742d32
+    // nonce: 56d890e5accaaf011cff4b7f
+    // ct: 498dfcabd92e8acedc281e85af1cb4e3e31c7dc394a1ca20e173cb7251649158
+    // 8d96a19ad4a683518973dcc180
+    _ = try fmt.hexToBytes(&message, "4265617574792069732074727574682c20747275746820626561757479");
+    _ = try fmt.hexToBytes(&ad, "436f756e742d32");
+    client_ctx.encryptToServer(&ciphertext, &message, &ad);
+    _ = try fmt.hexToBytes(&ct, "498dfcabd92e8acedc281e85af1cb4e3e31c7dc394a1ca20e173cb72516491588d96a19ad4a683518973dcc180");
+    try testing.expectEqualSlices(u8, &ct, &ciphertext);
+    
+    // skip
+    client_ctx.encryptToServer(&ciphertext, &message, &ad);
 
-    try server_ctx.decryptFromClient(&message2, &ciphertext, ad);
-    try testing.expectEqualSlices(u8, message[0..], message2[0..]);
+    // sequence number: 4
+    // pt: 4265617574792069732074727574682c20747275746820626561757479
+    // aad: 436f756e742d34
+    // nonce: 56d890e5accaaf011cff4b79
+    // ct: 583bd32bc67a5994bb8ceaca813d369bca7b2a42408cddef5e22f880b631215a
+    // 09fc0012bc69fccaa251c0246d
+    _ = try fmt.hexToBytes(&message, "4265617574792069732074727574682c20747275746820626561757479");
+    _ = try fmt.hexToBytes(&ad, "436f756e742d34");
+    client_ctx.encryptToServer(&ciphertext, &message, &ad);
+    _ = try fmt.hexToBytes(&ct, "583bd32bc67a5994bb8ceaca813d369bca7b2a42408cddef5e22f880b631215a09fc0012bc69fccaa251c0246d");
+    try testing.expectEqualSlices(u8, &ct, &ciphertext);
 
-    _ = try fmt.hexToBytes(&expected, "ede5198c19b2591389fc7cea");
-    const base_nonce = client_ctx.ctx.outbound_state.?.base_nonce.constSlice();
-    try testing.expectEqualSlices(u8, base_nonce, expected[0..base_nonce.len]);
+    var end: u32 = 254;
+    var i: u32 = 4;
+    while (i < end): (i += 1) {
+        client_ctx.encryptToServer(&ciphertext, &message, &ad);
+    }
 
-    var exported_secret: [expected.len]u8 = undefined;
-    _ = try fmt.hexToBytes(&expected, "4ab2fe1958f433ebdd2e6302a81a5a7ca91f2ecf2188658524d681be7a9f8e45");
-    try client_ctx.exportSecret(&exported_secret, "exported secret");
-    try testing.expectEqualSlices(u8, &expected, &exported_secret);
-    try server_ctx.exportSecret(&exported_secret, "exported secret");
-    try testing.expectEqualSlices(u8, &expected, &exported_secret);
+    // var counter = client_ctx.ctx.outbound_state.?.counter;
+    // std.debug.print("{s}\n", .{std.fmt.fmtSliceHexLower(counter.constSlice())});
 
-    client_ctx_and_encapsulated_secret = try suite.createAuthenticatedClientContext(
-        client_kp,
-        server_kp.public_key.constSlice(),
-        &info,
-        null,
-        null,
-    );
-    encapsulated_secret = client_ctx_and_encapsulated_secret.encapsulated_secret;
-    client_ctx = client_ctx_and_encapsulated_secret.client_ctx;
-    server_ctx = try suite.createAuthenticatedServerContext(
-        client_kp.public_key.constSlice(),
-        encapsulated_secret.encapsulated.constSlice(),
-        server_kp,
-        &info,
-        null,
-    );
-    client_ctx.encryptToServer(&ciphertext, message, ad);
-    try server_ctx.decryptFromClient(&message2, &ciphertext, ad);
-    try testing.expectEqualSlices(u8, message[0..], message2[0..]);
+    // sequence number: 255
+    // pt: 4265617574792069732074727574682c20747275746820626561757479
+    // aad: 436f756e742d323535
+    // nonce: 56d890e5accaaf011cff4b82
+    // ct: 7175db9717964058640a3a11fb9007941a5d1757fda1a6935c805c21af32505b
+    // f106deefec4a49ac38d71c9e0a
+    _ = try fmt.hexToBytes(&message, "4265617574792069732074727574682c20747275746820626561757479");
+    var ad2: [9]u8 = undefined;
+    _ = try fmt.hexToBytes(&ad2, "436f756e742d323535");
+    client_ctx.encryptToServer(&ciphertext, &message, &ad2);
+    _ = try fmt.hexToBytes(&ct, "7175db9717964058640a3a11fb9007941a5d1757fda1a6935c805c21af32505bf106deefec4a49ac38d71c9e0a");
+    try testing.expectEqualSlices(u8, &ct, &ciphertext);
 
-    server_ctx.encryptToClient(&ciphertext, message, ad);
-    try client_ctx.decryptFromServer(&message2, &ciphertext, ad);
-    try testing.expectEqualSlices(u8, message[0..], message2[0..]);
+    // sequence number: 256
+    // pt: 4265617574792069732074727574682c20747275746820626561757479
+    // aad: 436f756e742d323536
+    // nonce: 56d890e5accaaf011cff4a7d
+    // ct: 957f9800542b0b8891badb026d79cc54597cb2d225b54c00c5238c25d05c30e3
+    // fbeda97d2e0e1aba483a2df9f2
+    _ = try fmt.hexToBytes(&message, "4265617574792069732074727574682c20747275746820626561757479");
+    _ = try fmt.hexToBytes(&ad2, "436f756e742d323536");
+    client_ctx.encryptToServer(&ciphertext, &message, &ad2);
+    _ = try fmt.hexToBytes(&ct, "957f9800542b0b8891badb026d79cc54597cb2d225b54c00c5238c25d05c30e3fbeda97d2e0e1aba483a2df9f2");
+    try testing.expectEqualSlices(u8, &ct, &ciphertext);
+
+    // std.debug.print("{}\n", .{ciphertext.len});
+    // std.debug.print("{s}\n", .{std.fmt.fmtSliceHexLower(&ciphertext)});
+
+    // var server_ctx = try suite.createServerContext(encapsulated_secret.encapsulated.constSlice(), server_kp, &info, null);
+
+    // var message2: [29]u8 = undefined;
+    // try server_ctx.decryptFromClient(&message2, &ciphertext, &ad2);
+    // try testing.expectEqualSlices(u8, message[0..], message2[0..]);
+
+    // _ = try fmt.hexToBytes(&expected, "ede5198c19b2591389fc7cea");
+    // const base_nonce = client_ctx.ctx.outbound_state.?.base_nonce.constSlice();
+    // try testing.expectEqualSlices(u8, base_nonce, expected[0..base_nonce.len]);
+
+    // var exported_secret: [expected.len]u8 = undefined;
+    // _ = try fmt.hexToBytes(&expected, "4ab2fe1958f433ebdd2e6302a81a5a7ca91f2ecf2188658524d681be7a9f8e45");
+    // try client_ctx.exportSecret(&exported_secret, "exported secret");
+    // try testing.expectEqualSlices(u8, &expected, &exported_secret);
+    // try server_ctx.exportSecret(&exported_secret, "exported secret");
+    // try testing.expectEqualSlices(u8, &expected, &exported_secret);
+
+    // client_ctx_and_encapsulated_secret = try suite.createAuthenticatedClientContext(
+    //     client_kp,
+    //     server_kp.public_key.constSlice(),
+    //     &info,
+    //     null,
+    //     null,
+    // );
+    // encapsulated_secret = client_ctx_and_encapsulated_secret.encapsulated_secret;
+    // client_ctx = client_ctx_and_encapsulated_secret.client_ctx;
+    // server_ctx = try suite.createAuthenticatedServerContext(
+    //     client_kp.public_key.constSlice(),
+    //     encapsulated_secret.encapsulated.constSlice(),
+    //     server_kp,
+    //     &info,
+    //     null,
+    // );
+    // client_ctx.encryptToServer(&ciphertext, message, ad);
+    // try server_ctx.decryptFromClient(&message2, &ciphertext, ad);
+    // try testing.expectEqualSlices(u8, message[0..], message2[0..]);
+
+    // server_ctx.encryptToClient(&ciphertext, message, ad);
+    // try client_ctx.decryptFromServer(&message2, &ciphertext, ad);
+    // try testing.expectEqualSlices(u8, message[0..], message2[0..]);
 }
