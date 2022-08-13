@@ -412,22 +412,17 @@ pub const Suite = struct {
         try key_schedule_ctx.append(@enumToInt(mode));
         try key_schedule_ctx.appendSlice(psk_id_hash.constSlice());
         try key_schedule_ctx.appendSlice(info_hash.constSlice());
-        std.debug.print("key_schedule_ctx: {s}\n", .{std.fmt.fmtSliceHexLower(key_schedule_ctx.items)});
 
         const psk_key: []const u8 = if (psk) |p| p.key else &[_]u8{};
         var secret = try self.labeledExtract(&self.id.context, dh_secret, "secret", psk_key);
-        std.debug.print("secret: {s}\n", .{std.fmt.fmtSliceHexLower(secret.constSlice())});
         var exporter_secret = try BoundedArray(u8, max_prk_length).init(self.kdf.prk_length);
         try self.labeledExpand(exporter_secret.slice(), &self.id.context, secret, "exp", key_schedule_ctx.items);
-        std.debug.print("exporter_secret: {s}\n", .{std.fmt.fmtSliceHexLower(exporter_secret.constSlice())});
 
         var outbound_state = if (self.aead) |aead| blk: {
             var outbound_key = try BoundedArray(u8, max_aead_key_length).init(aead.key_length);
             try self.labeledExpand(outbound_key.slice(), &self.id.context, secret, "key", key_schedule_ctx.items);
-            std.debug.print("outbound_key: {s}\n", .{std.fmt.fmtSliceHexLower(outbound_key.constSlice())});
             var outbound_base_nonce = try BoundedArray(u8, max_aead_nonce_length).init(aead.nonce_length);
             try self.labeledExpand(outbound_base_nonce.slice(), &self.id.context, secret, "base_nonce", key_schedule_ctx.items);
-            std.debug.print("outbound_nonce: {s}\n", .{std.fmt.fmtSliceHexLower(outbound_base_nonce.constSlice())});
             break :blk try aead.newStateFn(outbound_key.constSlice(), outbound_base_nonce.constSlice());
         } else null;
 
@@ -545,7 +540,6 @@ pub const Suite = struct {
     pub fn createClientContext(self: Self, server_pk: []const u8, info: []const u8, psk: ?Psk, seed: ?[]const u8) !ClientContextAndEncapsulatedSecret {
         const encapsulated_secret = try self.encap(server_pk, seed);
         const mode: Mode = if (psk) |_| .psk else .base;
-        std.debug.print("mode: {}\n", .{mode});
         const inner_ctx = try self.keySchedule(mode, encapsulated_secret.secret.constSlice(), info, psk);
         const client_ctx = ClientContext{ .ctx = inner_ctx };
         return ClientContextAndEncapsulatedSecret{

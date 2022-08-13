@@ -7,8 +7,6 @@ const max_aead_tag_length = hpke.max_aead_tag_length;
 const Suite = hpke.Suite;
 
 test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM Base" {
-    std.debug.print("\n", .{});
-
     const suite = try Suite.init(
         primitives.Kem.X25519HkdfSha256.id,
         primitives.Kdf.HkdfSha256.id,
@@ -218,13 +216,9 @@ test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM Base" {
 
     try server_ctx.exportSecret(&exported_secret, &exporter_context2);
     try testing.expectEqualSlices(u8, &expected, &exported_secret);
-
-    std.debug.print("\n", .{});
 }
 
 test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM PSK" {
-    std.debug.print("\n", .{});
-
     const suite = try Suite.init(
         primitives.Kem.X25519HkdfSha256.id,
         primitives.Kdf.HkdfSha256.id,
@@ -293,13 +287,9 @@ test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM PSK" {
     var exporter_secret = client_ctx.ctx.exporter_secret;
     _ = try fmt.hexToBytes(&expected, "3d76025dbbedc49448ec3f9080a1abab6b06e91c0b11ad23c912f043a0ee7655");
     try testing.expectEqualSlices(u8, expected[0..exporter_secret.len], exporter_secret.constSlice());
-
-    std.debug.print("\n", .{});
 }
 
 test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM Auth" {
-    std.debug.print("\n", .{});
-
     const suite = try Suite.init(
         primitives.Kem.X25519HkdfSha256.id,
         primitives.Kdf.HkdfSha256.id,
@@ -366,13 +356,9 @@ test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM Auth" {
     var exporter_secret = client_ctx.ctx.exporter_secret;
     _ = try fmt.hexToBytes(&expected, "ee1a093e6e1c393c162ea98fdf20560c75909653550540a2700511b65c88c6f1");
     try testing.expectEqualSlices(u8, expected[0..exporter_secret.len], exporter_secret.constSlice());
-
-    std.debug.print("\n", .{});
 }
 
 test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM AuthPSK" {
-    std.debug.print("\n", .{});
-
     const suite = try Suite.init(
         primitives.Kem.X25519HkdfSha256.id,
         primitives.Kdf.HkdfSha256.id,
@@ -450,8 +436,6 @@ test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM AuthPSK" {
     var exporter_secret = client_ctx.ctx.exporter_secret;
     _ = try fmt.hexToBytes(&expected, "f048d55eacbf60f9c6154bd4021774d1075ebf963c6adc71fa846f183ab2dde6");
     try testing.expectEqualSlices(u8, expected[0..exporter_secret.len], exporter_secret.constSlice());
-
-    std.debug.print("\n", .{});
 }
 
 
