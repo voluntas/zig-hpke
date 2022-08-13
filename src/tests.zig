@@ -169,9 +169,6 @@ test "hpke" {
     try server_ctx.decryptFromClient(&message2, &ciphertext, &ad2);
     try testing.expectEqualSlices(u8, message[0..], message2[0..]);
 
-    // std.debug.print("{}\n", .{ciphertext.len});
-    // std.debug.print("{s}\n", .{std.fmt.fmtSliceHexLower(&ciphertext)});
-
     // _ = try fmt.hexToBytes(&expected, "56d890e5accaaf011cff4b7d");
     // const base_nonce = client_ctx.ctx.outbound_state.?.base_nonce.constSlice();
     // try testing.expectEqualSlices(u8, base_nonce, expected[0..base_nonce.len]);
@@ -194,55 +191,54 @@ test "hpke" {
     // L: 32
     // exported_value:
     // 2e8f0b54673c7029649d4eb9d5e33bf1872cf76d623ff164ac185da9e88c21a5
-    _ = try fmt.hexToBytes(&expected, "2e8f0b54673c7029649d4eb9d5e33bf1872cf76d623ff164ac185da9e88c21a5");
-    
-    _ = try fmt.hexToBytes(&expected, "2e8f0b54673c7029649d4eb9d5e33bf1872cf76d623ff164ac185da9e88c21a5");
     var exporter_context: [1]u8 = undefined;
     _ = try fmt.hexToBytes(&exporter_context, "00");
+
+    _ = try fmt.hexToBytes(&expected, "2e8f0b54673c7029649d4eb9d5e33bf1872cf76d623ff164ac185da9e88c21a5");
+
     try client_ctx.exportSecret(&exported_secret, &exporter_context);
-    // std.debug.print("client_ctx: {s}\n", .{std.fmt.fmtSliceHexLower(&exported_secret)});
     try testing.expectEqualSlices(u8, &expected, &exported_secret);
 
     try server_ctx.exportSecret(&exported_secret, &exporter_context);
-    // std.debug.print("server_ctx: {s}\n", .{std.fmt.fmtSliceHexLower(&exported_secret)});
     try testing.expectEqualSlices(u8, &expected, &exported_secret);
 
     // exporter_context: 54657374436f6e74657874
     // L: 32
     // exported_value:
     // e9e43065102c3836401bed8c3c3c75ae46be1639869391d62c61f1ec7af54931
-    _ = try fmt.hexToBytes(&expected, "e9e43065102c3836401bed8c3c3c75ae46be1639869391d62c61f1ec7af54931");
     var exporter_context2: [11]u8 = undefined;
     _ = try fmt.hexToBytes(&exporter_context2, "54657374436f6e74657874");
+
+    _ = try fmt.hexToBytes(&expected, "e9e43065102c3836401bed8c3c3c75ae46be1639869391d62c61f1ec7af54931");
+
     try client_ctx.exportSecret(&exported_secret, &exporter_context2);
-    // std.debug.print("client_ctx: {s}\n", .{std.fmt.fmtSliceHexLower(&exported_secret)});
     try testing.expectEqualSlices(u8, &expected, &exported_secret);
 
     try server_ctx.exportSecret(&exported_secret, &exporter_context2);
-    // std.debug.print("server_ctx: {s}\n", .{std.fmt.fmtSliceHexLower(&exported_secret)});
     try testing.expectEqualSlices(u8, &expected, &exported_secret);
 
-    // client_ctx_and_encapsulated_secret = try suite.createAuthenticatedClientContext(
-    //     client_kp,
-    //     server_kp.public_key.constSlice(),
-    //     &info,
-    //     null,
-    //     null,
-    // );
-    // encapsulated_secret = client_ctx_and_encapsulated_secret.encapsulated_secret;
-    // client_ctx = client_ctx_and_encapsulated_secret.client_ctx;
-    // server_ctx = try suite.createAuthenticatedServerContext(
-    //     client_kp.public_key.constSlice(),
-    //     encapsulated_secret.encapsulated.constSlice(),
-    //     server_kp,
-    //     &info,
-    //     null,
-    // );
-    // client_ctx.encryptToServer(&ciphertext, message, ad);
-    // try server_ctx.decryptFromClient(&message2, &ciphertext, ad);
-    // try testing.expectEqualSlices(u8, message[0..], message2[0..]);
+    client_ctx_and_encapsulated_secret = try suite.createAuthenticatedClientContext(
+        client_kp,
+        server_kp.public_key.constSlice(),
+        &info,
+        null,
+        null,
+    );
+    encapsulated_secret = client_ctx_and_encapsulated_secret.encapsulated_secret;
+    client_ctx = client_ctx_and_encapsulated_secret.client_ctx;
+    server_ctx = try suite.createAuthenticatedServerContext(
+        client_kp.public_key.constSlice(),
+        encapsulated_secret.encapsulated.constSlice(),
+        server_kp,
+        &info,
+        null,
+    );
+    client_ctx.encryptToServer(&ciphertext, &message, &ad);
+    try server_ctx.decryptFromClient(&message2, &ciphertext, &ad);
+    try testing.expectEqualSlices(u8, message[0..], message2[0..]);
 
-    // server_ctx.encryptToClient(&ciphertext, message, ad);
-    // try client_ctx.decryptFromServer(&message2, &ciphertext, ad);
-    // try testing.expectEqualSlices(u8, message[0..], message2[0..]);
+    server_ctx.encryptToClient(&ciphertext, &message, &ad);
+    try client_ctx.decryptFromServer(&message2, &ciphertext, &ad);
+    try testing.expectEqualSlices(u8, message[0..], message2[0..]);
 }
+
