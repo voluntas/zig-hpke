@@ -6,6 +6,9 @@ const primitives = hpke.primitives;
 const max_aead_tag_length = hpke.max_aead_tag_length;
 const Suite = hpke.Suite;
 
+// https://www.rfc-editor.org/rfc/rfc9180.html#name-dhkemx25519-hkdf-sha256-hkd
+
+// https://www.rfc-editor.org/rfc/rfc9180.html#name-base-setup-information
 test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM Base" {
     const suite = try Suite.init(
         primitives.Kem.X25519HkdfSha256.id,
@@ -218,6 +221,7 @@ test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM Base" {
     try testing.expectEqualSlices(u8, &expected, &exported_secret);
 }
 
+// https://www.rfc-editor.org/rfc/rfc9180.html#name-psk-setup-information
 test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM PSK" {
     const suite = try Suite.init(
         primitives.Kem.X25519HkdfSha256.id,
@@ -289,6 +293,7 @@ test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM PSK" {
     try testing.expectEqualSlices(u8, expected[0..exporter_secret.len], exporter_secret.constSlice());
 }
 
+// https://www.rfc-editor.org/rfc/rfc9180.html#name-auth-setup-information
 test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM Auth" {
     const suite = try Suite.init(
         primitives.Kem.X25519HkdfSha256.id,
@@ -403,6 +408,7 @@ test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM Auth" {
     try testing.expectEqualSlices(u8, &expected, &exported_secret);
 }
 
+// https://www.rfc-editor.org/rfc/rfc9180.html#name-authpsk-setup-information
 test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM AuthPSK" {
     const suite = try Suite.init(
         primitives.Kem.X25519HkdfSha256.id,
