@@ -19,16 +19,16 @@ test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM Base" {
     var info: [info_hex.len / 2]u8 = undefined;
     _ = try fmt.hexToBytes(&info, info_hex);
 
-    const server_seed_hex = "6db9df30aa07dd42ee5e8181afdb977e538f5e1fec8a06223f33f7013e525037";
-    var server_seed: [server_seed_hex.len / 2]u8 = undefined;
-    _ = try fmt.hexToBytes(&server_seed, server_seed_hex);
-    var server_kp = try suite.deriveKeyPair(&server_seed);
+    const ephemeral_seed_hex = "6db9df30aa07dd42ee5e8181afdb977e538f5e1fec8a06223f33f7013e525037";
+    var ephemeral_seed: [ephemeral_seed_hex.len / 2]u8 = undefined;
+    _ = try fmt.hexToBytes(&ephemeral_seed, ephemeral_seed_hex);
+    var ephemeral_kp = try suite.deriveKeyPair(&ephemeral_seed);
 
     var expected: [32]u8 = undefined;
     _ = try fmt.hexToBytes(&expected, "4612c550263fc8ad58375df3f557aac531d26850903e55a9f23f21d8534e8ac8");
-    try testing.expectEqualSlices(u8, &expected, server_kp.secret_key.slice());
+    try testing.expectEqualSlices(u8, &expected, ephemeral_kp.secret_key.slice());
     _ = try fmt.hexToBytes(&expected, "3948cfe0ad1ddb695d780e59077195da6c56506b027329794ab02bca80815c4d");
-    try testing.expectEqualSlices(u8, &expected, server_kp.public_key.slice());
+    try testing.expectEqualSlices(u8, &expected, ephemeral_kp.public_key.slice());
 
     const client_seed_hex = "7268600d403fce431561aef583ee1613527cff655c1343f29812e66706df3234";
     var client_seed: [client_seed_hex.len / 2]u8 = undefined;
@@ -36,7 +36,7 @@ test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM Base" {
     var client_kp = try suite.deriveKeyPair(&client_seed);
     _ = client_kp;
 
-    var client_ctx_and_encapsulated_secret = try suite.createClientContext(server_kp.public_key.slice(), &info, null, &client_seed);
+    var client_ctx_and_encapsulated_secret = try suite.createClientContext(ephemeral_kp.public_key.slice(), &info, null, &client_seed);
     var encapsulated_secret = client_ctx_and_encapsulated_secret.encapsulated_secret;
     _ = try fmt.hexToBytes(&expected, "37fda3567bdbd628e88668c3c8d7e97d1d1253b6d4ea6d44c150f741f1bf4431");
     try testing.expectEqualSlices(u8, &expected, encapsulated_secret.encapsulated.constSlice());
@@ -56,7 +56,7 @@ test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM Base" {
     // var counter = client_ctx.ctx.outbound_state.?.counter;
     // std.debug.print("{s}\n", .{std.fmt.fmtSliceHexLower(counter.constSlice())});
 
-    var server_ctx = try suite.createServerContext(encapsulated_secret.encapsulated.constSlice(), server_kp, &info, null);
+    var server_ctx = try suite.createServerContext(encapsulated_secret.encapsulated.constSlice(), ephemeral_kp, &info, null);
 
     // sequence number: 0
     // pt: 4265617574792069732074727574682c20747275746820626561757479
@@ -218,30 +218,6 @@ test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM Base" {
 
     try server_ctx.exportSecret(&exported_secret, &exporter_context2);
     try testing.expectEqualSlices(u8, &expected, &exported_secret);
-
-    client_ctx_and_encapsulated_secret = try suite.createAuthenticatedClientContext(
-        client_kp,
-        server_kp.public_key.constSlice(),
-        &info,
-        null,
-        null,
-    );
-    encapsulated_secret = client_ctx_and_encapsulated_secret.encapsulated_secret;
-    client_ctx = client_ctx_and_encapsulated_secret.client_ctx;
-    server_ctx = try suite.createAuthenticatedServerContext(
-        client_kp.public_key.constSlice(),
-        encapsulated_secret.encapsulated.constSlice(),
-        server_kp,
-        &info,
-        null,
-    );
-    client_ctx.encryptToServer(&ciphertext, &message, &ad);
-    try server_ctx.decryptFromClient(&message2, &ciphertext, &ad);
-    try testing.expectEqualSlices(u8, message[0..], message2[0..]);
-
-    server_ctx.encryptToClient(&ciphertext, &message, &ad);
-    try client_ctx.decryptFromServer(&message2, &ciphertext, &ad);
-    try testing.expectEqualSlices(u8, message[0..], message2[0..]);
 
     std.debug.print("\n", .{});
 }

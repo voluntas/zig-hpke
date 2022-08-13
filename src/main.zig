@@ -403,8 +403,6 @@ pub const Suite = struct {
     fn keySchedule(self: Self, mode: Mode, dh_secret: []const u8, info: []const u8, psk: ?Psk) !Context {
         try verifyPskInputs(mode, psk);
         const psk_id: []const u8 = if (psk) |p| p.id else &[_]u8{};
-        std.debug.print("psk: {}\n", .{psk});
-        std.debug.print("psk_id: {s}\n", .{std.fmt.fmtSliceHexLower(psk_id)});
         var psk_id_hash = try self.labeledExtract(&self.id.context, null, "psk_id_hash", psk_id);
         var info_hash = try self.labeledExtract(&self.id.context, null, "info_hash", info);
 
@@ -414,16 +412,11 @@ pub const Suite = struct {
         try key_schedule_ctx.append(@enumToInt(mode));
         try key_schedule_ctx.appendSlice(psk_id_hash.constSlice());
         try key_schedule_ctx.appendSlice(info_hash.constSlice());
-        // ここまではあってる
         std.debug.print("key_schedule_ctx: {s}\n", .{std.fmt.fmtSliceHexLower(key_schedule_ctx.items)});
 
-        // psk_key を渡す必要がある
         const psk_key: []const u8 = if (psk) |p| p.key else &[_]u8{};
-        // ここが違う
         var secret = try self.labeledExtract(&self.id.context, dh_secret, "secret", psk_key);
-        std.debug.print("id.context: {s}\n", .{std.fmt.fmtSliceHexLower(&self.id.context)});
         std.debug.print("secret: {s}\n", .{std.fmt.fmtSliceHexLower(secret.constSlice())});
-        // ここもずれる
         var exporter_secret = try BoundedArray(u8, max_prk_length).init(self.kdf.prk_length);
         try self.labeledExpand(exporter_secret.slice(), &self.id.context, secret, "exp", key_schedule_ctx.items);
         std.debug.print("exporter_secret: {s}\n", .{std.fmt.fmtSliceHexLower(exporter_secret.constSlice())});
