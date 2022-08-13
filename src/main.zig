@@ -157,7 +157,7 @@ pub const primitives = struct {
 
         /// An AEAD state
         pub const State = struct {
-            const Self = @This();            
+            const Self = @This();
 
             base_nonce: BoundedArray(u8, max_aead_nonce_length),
             counter: BoundedArray(u8, max_aead_nonce_length),
@@ -268,7 +268,6 @@ pub const primitives = struct {
             };
         };
 
-
         /// Use an external AEAD
         pub const ExportOnly = struct {
             pub const id: u16 = 0xffff;
@@ -361,13 +360,14 @@ pub const Suite = struct {
     pub fn labeledExtract(self: Self, suite_id: []const u8, salt: ?[]const u8, label: []const u8, ikm: []const u8) !Prk {
         var buffer: [hpke_version.len + max_suite_id_length + max_label_length + max_ikm_length]u8 = undefined;
         var alloc = FixedBufferAllocator.init(&buffer);
-        var secret = try ArrayList(u8).initCapacity(alloc.allocator(), alloc.buffer.len);
-        try secret.appendSlice(&hpke_version);
-        try secret.appendSlice(suite_id);
-        try secret.appendSlice(label);
-        try secret.appendSlice(ikm);
+        // secret は labeled_ikm
+        var labeled_ikm = try ArrayList(u8).initCapacity(alloc.allocator(), alloc.buffer.len);
+        try labeled_ikm.appendSlice(&hpke_version);
+        try labeled_ikm.appendSlice(suite_id);
+        try labeled_ikm.appendSlice(label);
+        try labeled_ikm.appendSlice(ikm);
         var prk = try Prk.init(self.kdf.prk_length);
-        self.extract(prk.slice(), salt, secret.items);
+        self.extract(prk.slice(), salt, labeled_ikm.items);
 
         return prk;
     }
@@ -403,6 +403,8 @@ pub const Suite = struct {
     fn keySchedule(self: Self, mode: Mode, dh_secret: []const u8, info: []const u8, psk: ?Psk) !Context {
         try verifyPskInputs(mode, psk);
         const psk_id: []const u8 = if (psk) |p| p.id else &[_]u8{};
+        std.debug.print("psk: {}\n", .{psk});
+        std.debug.print("psk_id: {s}\n", .{std.fmt.fmtSliceHexLower(psk_id)});
         var psk_id_hash = try self.labeledExtract(&self.id.context, null, "psk_id_hash", psk_id);
         var info_hash = try self.labeledExtract(&self.id.context, null, "info_hash", info);
 
@@ -412,15 +414,27 @@ pub const Suite = struct {
         try key_schedule_ctx.append(@enumToInt(mode));
         try key_schedule_ctx.appendSlice(psk_id_hash.constSlice());
         try key_schedule_ctx.appendSlice(info_hash.constSlice());
-        var secret = try self.labeledExtract(&self.id.context, dh_secret, "secret", psk_id);
+        // ここまではあってる
+        std.debug.print("key_schedule_ctx: {s}\n", .{std.fmt.fmtSliceHexLower(key_schedule_ctx.items)});
+
+        // psk_key を渡す必要がある
+        const psk_key: []const u8 = if (psk) |p| p.key else &[_]u8{};
+        // ここが違う
+        var secret = try self.labeledExtract(&self.id.context, dh_secret, "secret", psk_key);
+        std.debug.print("id.context: {s}\n", .{std.fmt.fmtSliceHexLower(&self.id.context)});
+        std.debug.print("secret: {s}\n", .{std.fmt.fmtSliceHexLower(secret.constSlice())});
+        // ここもずれる
         var exporter_secret = try BoundedArray(u8, max_prk_length).init(self.kdf.prk_length);
         try self.labeledExpand(exporter_secret.slice(), &self.id.context, secret, "exp", key_schedule_ctx.items);
+        std.debug.print("exporter_secret: {s}\n", .{std.fmt.fmtSliceHexLower(exporter_secret.constSlice())});
 
         var outbound_state = if (self.aead) |aead| blk: {
             var outbound_key = try BoundedArray(u8, max_aead_key_length).init(aead.key_length);
             try self.labeledExpand(outbound_key.slice(), &self.id.context, secret, "key", key_schedule_ctx.items);
+            std.debug.print("outbound_key: {s}\n", .{std.fmt.fmtSliceHexLower(outbound_key.constSlice())});
             var outbound_base_nonce = try BoundedArray(u8, max_aead_nonce_length).init(aead.nonce_length);
             try self.labeledExpand(outbound_base_nonce.slice(), &self.id.context, secret, "base_nonce", key_schedule_ctx.items);
+            std.debug.print("outbound_nonce: {s}\n", .{std.fmt.fmtSliceHexLower(outbound_base_nonce.constSlice())});
             break :blk try aead.newStateFn(outbound_key.constSlice(), outbound_base_nonce.constSlice());
         } else null;
 
@@ -476,6 +490,7 @@ pub const Suite = struct {
 
     /// Generate a secret, return it as well as its encapsulation, with authentication support
     pub fn authEncap(self: Self, server_pk: []const u8, client_kp: KeyPair, seed: ?[]const u8) !EncapsulatedSecret {
+        // eph_kp は ikm (seed) から生成する
         var eph_kp = if (seed) |s| try self.deriveKeyPair(s) else try self.generateKeyPair();
         var dh1 = try BoundedArray(u8, max_shared_key_length).init(self.kem.shared_length);
         try self.kem.dhFn(dh1.slice(), server_pk, eph_kp.secret_key.constSlice());
@@ -537,6 +552,7 @@ pub const Suite = struct {
     pub fn createClientContext(self: Self, server_pk: []const u8, info: []const u8, psk: ?Psk, seed: ?[]const u8) !ClientContextAndEncapsulatedSecret {
         const encapsulated_secret = try self.encap(server_pk, seed);
         const mode: Mode = if (psk) |_| .psk else .base;
+        std.debug.print("mode: {}\n", .{mode});
         const inner_ctx = try self.keySchedule(mode, encapsulated_secret.secret.constSlice(), info, psk);
         const client_ctx = ClientContext{ .ctx = inner_ctx };
         return ClientContextAndEncapsulatedSecret{
@@ -549,6 +565,7 @@ pub const Suite = struct {
     pub fn createAuthenticatedClientContext(self: Self, client_kp: KeyPair, server_pk: []const u8, info: []const u8, psk: ?Psk, seed: ?[]const u8) !ClientContextAndEncapsulatedSecret {
         const encapsulated_secret = try self.authEncap(server_pk, client_kp, seed);
         const mode: Mode = if (psk) |_| .authPsk else .auth;
+        // sefret == shared_secret なのでわかりやすく変更したほうがいい
         const inner_ctx = try self.keySchedule(mode, encapsulated_secret.secret.constSlice(), info, psk);
         const client_ctx = ClientContext{ .ctx = inner_ctx };
         return ClientContextAndEncapsulatedSecret{
@@ -575,7 +592,7 @@ pub const Suite = struct {
 };
 
 const Context = struct {
-    const Self = @This();    
+    const Self = @This();
 
     suite: Suite,
     exporter_secret: BoundedArray(u8, max_prk_length),
