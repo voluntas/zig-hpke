@@ -356,6 +356,51 @@ test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM Auth" {
     var exporter_secret = client_ctx.ctx.exporter_secret;
     _ = try fmt.hexToBytes(&expected, "ee1a093e6e1c393c162ea98fdf20560c75909653550540a2700511b65c88c6f1");
     try testing.expectEqualSlices(u8, expected[0..exporter_secret.len], exporter_secret.constSlice());
+
+    var server_ctx = try suite.createAuthenticatedServerContext(client_kp.public_key.constSlice(), encapsulated_secret.encapsulated.constSlice(), server_kp, &info, null);
+
+    // exporter_context:
+    // L: 32
+    // exported_value:
+    // 28c70088017d70c896a8420f04702c5a321d9cbf0279fba899b59e51bac72c85
+    var exported_secret: [expected.len]u8 = undefined;
+    _ = try fmt.hexToBytes(&expected, "28c70088017d70c896a8420f04702c5a321d9cbf0279fba899b59e51bac72c85");
+
+    try client_ctx.exportSecret(&exported_secret, "");
+    try testing.expectEqualSlices(u8, &expected, &exported_secret);
+
+    try server_ctx.exportSecret(&exported_secret, "");
+    try testing.expectEqualSlices(u8, &expected, &exported_secret);
+
+    // exporter_context: 00
+    // L: 32
+    // exported_value:
+    // 25dfc004b0892be1888c3914977aa9c9bbaf2c7471708a49e1195af48a6f29ce
+    var exporter_context: [1]u8 = undefined;
+    _ = try fmt.hexToBytes(&exporter_context, "00");
+
+    _ = try fmt.hexToBytes(&expected, "25dfc004b0892be1888c3914977aa9c9bbaf2c7471708a49e1195af48a6f29ce");
+
+    try client_ctx.exportSecret(&exported_secret, &exporter_context);
+    try testing.expectEqualSlices(u8, &expected, &exported_secret);
+
+    try server_ctx.exportSecret(&exported_secret, &exporter_context);
+    try testing.expectEqualSlices(u8, &expected, &exported_secret);
+
+    // exporter_context: 54657374436f6e74657874
+    // L: 32
+    // exported_value:
+    // 5a0131813abc9a522cad678eb6bafaabc43389934adb8097d23c5ff68059eb64
+    var exporter_context2: [11]u8 = undefined;
+    _ = try fmt.hexToBytes(&exporter_context2, "54657374436f6e74657874");
+
+    _ = try fmt.hexToBytes(&expected, "5a0131813abc9a522cad678eb6bafaabc43389934adb8097d23c5ff68059eb64");
+
+    try client_ctx.exportSecret(&exported_secret, &exporter_context2);
+    try testing.expectEqualSlices(u8, &expected, &exported_secret);
+
+    try server_ctx.exportSecret(&exported_secret, &exporter_context2);
+    try testing.expectEqualSlices(u8, &expected, &exported_secret);
 }
 
 test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM AuthPSK" {
@@ -436,6 +481,51 @@ test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM AuthPSK" {
     var exporter_secret = client_ctx.ctx.exporter_secret;
     _ = try fmt.hexToBytes(&expected, "f048d55eacbf60f9c6154bd4021774d1075ebf963c6adc71fa846f183ab2dde6");
     try testing.expectEqualSlices(u8, expected[0..exporter_secret.len], exporter_secret.constSlice());
+
+    var server_ctx = try suite.createAuthenticatedServerContext(client_kp.public_key.constSlice(), encapsulated_secret.encapsulated.constSlice(), server_kp, &info, psk);
+
+    // exporter_context:
+    // L: 32
+    // exported_value:
+    // 08f7e20644bb9b8af54ad66d2067457c5f9fcb2a23d9f6cb4445c0797b330067
+    var exported_secret: [expected.len]u8 = undefined;
+    _ = try fmt.hexToBytes(&expected, "08f7e20644bb9b8af54ad66d2067457c5f9fcb2a23d9f6cb4445c0797b330067");
+
+    try client_ctx.exportSecret(&exported_secret, "");
+    try testing.expectEqualSlices(u8, &expected, &exported_secret);
+
+    try server_ctx.exportSecret(&exported_secret, "");
+    try testing.expectEqualSlices(u8, &expected, &exported_secret);
+
+    // exporter_context: 00
+    // L: 32
+    // exported_value:
+    // 52e51ff7d436557ced5265ff8b94ce69cf7583f49cdb374e6aad801fc063b010
+    var exporter_context: [1]u8 = undefined;
+    _ = try fmt.hexToBytes(&exporter_context, "00");
+
+    _ = try fmt.hexToBytes(&expected, "52e51ff7d436557ced5265ff8b94ce69cf7583f49cdb374e6aad801fc063b010");
+
+    try client_ctx.exportSecret(&exported_secret, &exporter_context);
+    try testing.expectEqualSlices(u8, &expected, &exported_secret);
+
+    try server_ctx.exportSecret(&exported_secret, &exporter_context);
+    try testing.expectEqualSlices(u8, &expected, &exported_secret);
+
+    // exporter_context: 54657374436f6e74657874
+    // L: 32
+    // exported_value:
+    // a30c20370c026bbea4dca51cb63761695132d342bae33a6a11527d3e7679436d
+    var exporter_context2: [11]u8 = undefined;
+    _ = try fmt.hexToBytes(&exporter_context2, "54657374436f6e74657874");
+
+    _ = try fmt.hexToBytes(&expected, "a30c20370c026bbea4dca51cb63761695132d342bae33a6a11527d3e7679436d");
+
+    try client_ctx.exportSecret(&exported_secret, &exporter_context2);
+    try testing.expectEqualSlices(u8, &expected, &exported_secret);
+
+    try server_ctx.exportSecret(&exported_secret, &exporter_context2);
+    try testing.expectEqualSlices(u8, &expected, &exported_secret);
 }
 
 
