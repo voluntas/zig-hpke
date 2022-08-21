@@ -410,48 +410,74 @@ test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM Auth" {
 
 // https://www.rfc-editor.org/rfc/rfc9180.html#name-authpsk-setup-information
 test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM AuthPSK" {
+    // mode: 3
+    // kem_id: 32
+    // kdf_id: 1
+    // aead_id: 1
     const suite = try Suite.init(
         primitives.Kem.X25519HkdfSha256.id,
         primitives.Kdf.HkdfSha256.id,
         primitives.Aead.Aes128Gcm.id,
     );
 
+    // info: 4f6465206f6e2061204772656369616e2055726e
     var info_hex = "4f6465206f6e2061204772656369616e2055726e";
     var info: [info_hex.len / 2]u8 = undefined;
     _ = try fmt.hexToBytes(&info, info_hex);
 
+    // ikmE:
+    // 4303619085a20ebcf18edd22782952b8a7161e1dbae6e46e143a52a96127cf84
     const ephemeral_seed_hex = "4303619085a20ebcf18edd22782952b8a7161e1dbae6e46e143a52a96127cf84";
     var ephemeral_seed: [ephemeral_seed_hex.len / 2]u8 = undefined;
     _ = try fmt.hexToBytes(&ephemeral_seed, ephemeral_seed_hex);
     var ephemeral_kp = try suite.deterministicKeyPair(&ephemeral_seed);
 
     var expected: [32]u8 = undefined;
-    _ = try fmt.hexToBytes(&expected, "14de82a5897b613616a00c39b87429df35bc2b426bcfd73febcb45e903490768");
-    try testing.expectEqualSlices(u8, &expected, ephemeral_kp.secret_key.slice());
+    // pkEm:
+    // 820818d3c23993492cc5623ab437a48a0a7ca3e9639c140fe1e33811eb844b7c
     _ = try fmt.hexToBytes(&expected, "820818d3c23993492cc5623ab437a48a0a7ca3e9639c140fe1e33811eb844b7c");
     try testing.expectEqualSlices(u8, &expected, ephemeral_kp.public_key.slice());
+    // skEm:
+    // 14de82a5897b613616a00c39b87429df35bc2b426bcfd73febcb45e903490768
+    _ = try fmt.hexToBytes(&expected, "14de82a5897b613616a00c39b87429df35bc2b426bcfd73febcb45e903490768");
+    try testing.expectEqualSlices(u8, &expected, ephemeral_kp.secret_key.slice());
 
+    // ikmR:
+    // 4b16221f3b269a88e207270b5e1de28cb01f847841b344b8314d6a622fe5ee90
     const server_seed_hex = "4b16221f3b269a88e207270b5e1de28cb01f847841b344b8314d6a622fe5ee90";
     var server_seed: [server_seed_hex.len / 2]u8 = undefined;
     _ = try fmt.hexToBytes(&server_seed, server_seed_hex);
     var server_kp = try suite.deterministicKeyPair(&server_seed);
 
-    _ = try fmt.hexToBytes(&expected, "cb29a95649dc5656c2d054c1aa0d3df0493155e9d5da6d7e344ed8b6a64a9423");
-    try testing.expectEqualSlices(u8, &expected, server_kp.secret_key.slice());
+    // pkRm:
+    // 1d11a3cd247ae48e901939659bd4d79b6b959e1f3e7d66663fbc9412dd4e0976
     _ = try fmt.hexToBytes(&expected, "1d11a3cd247ae48e901939659bd4d79b6b959e1f3e7d66663fbc9412dd4e0976");
     try testing.expectEqualSlices(u8, &expected, server_kp.public_key.slice());
+    // skRm:
+    // cb29a95649dc5656c2d054c1aa0d3df0493155e9d5da6d7e344ed8b6a64a9423
+    _ = try fmt.hexToBytes(&expected, "cb29a95649dc5656c2d054c1aa0d3df0493155e9d5da6d7e344ed8b6a64a9423");
+    try testing.expectEqualSlices(u8, &expected, server_kp.secret_key.slice());
 
+    // ikmS:
+    // 62f77dcf5df0dd7eac54eac9f654f426d4161ec850cc65c54f8b65d2e0b4e345
     const client_seed_hex = "62f77dcf5df0dd7eac54eac9f654f426d4161ec850cc65c54f8b65d2e0b4e345";
     var client_seed: [client_seed_hex.len / 2]u8 = undefined;
     _ = try fmt.hexToBytes(&client_seed, client_seed_hex);
     var client_kp = try suite.deterministicKeyPair(&client_seed);
-    _ = try fmt.hexToBytes(&expected, "fc1c87d2f3832adb178b431fce2ac77c7ca2fd680f3406c77b5ecdf818b119f4");
-    try testing.expectEqualSlices(u8, &expected, client_kp.secret_key.slice());
+    // pkSm:
+    // 2bfb2eb18fcad1af0e4f99142a1c474ae74e21b9425fc5c589382c69b50cc57e
     _ = try fmt.hexToBytes(&expected, "2bfb2eb18fcad1af0e4f99142a1c474ae74e21b9425fc5c589382c69b50cc57e");
     try testing.expectEqualSlices(u8, &expected, client_kp.public_key.slice());
+    // skSm:
+    // fc1c87d2f3832adb178b431fce2ac77c7ca2fd680f3406c77b5ecdf818b119f4
+    _ = try fmt.hexToBytes(&expected, "fc1c87d2f3832adb178b431fce2ac77c7ca2fd680f3406c77b5ecdf818b119f4");
+    try testing.expectEqualSlices(u8, &expected, client_kp.secret_key.slice());
 
+    // psk:
+    // 0247fd33b913760fa1fa51e1892d9f307fbe65eb171e8132c2af18555a738b82
     var psk_key: [32]u8 = undefined;
     _ = try fmt.hexToBytes(&psk_key, "0247fd33b913760fa1fa51e1892d9f307fbe65eb171e8132c2af18555a738b82");
+    // psk_id: 456e6e796e20447572696e206172616e204d6f726961
     var psk_id: [22]u8 = undefined;
     _ = try fmt.hexToBytes(&psk_id, "456e6e796e20447572696e206172616e204d6f726961");
 
@@ -473,22 +499,147 @@ test "DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM AuthPSK" {
     _ = try fmt.hexToBytes(&expected, "f9d0e870aba28d04709b2680cb8185466c6a6ff1d6e9d1091d5bf5e10ce3a577");
     try testing.expectEqualSlices(u8, &expected, encapsulated_secret.secret.constSlice());
 
+    // key_schedule_context: 03e78d5cf6190d275863411ff5edd0dece5d39fa48e04e
+    // ec1ed9b71be34729d18ccb6cffde367bb0565ba28bb02c90744a20f5ef37f3052352
+    // 6106f637abb05449
+    // secret:
+    // 5f96c55e4108c6691829aaabaa7d539c0b41d7c72aae94ae289752f056b6cec4
+
     var client_ctx = client_auth_ctx_and_encapsulated_secret.client_ctx;
     _ = client_ctx;
 
+    // key: 1364ead92c47aa7becfa95203037b19a
     var key = client_ctx.ctx.outbound_state.?.key;
     _ = try fmt.hexToBytes(&expected, "1364ead92c47aa7becfa95203037b19a");
     try testing.expectEqualSlices(u8, expected[0..key.len], key.constSlice());
 
+    // base_nonce: 99d8b5c54669807e9fc70df1
     var base_nonce = client_ctx.ctx.outbound_state.?.base_nonce;
     _ = try fmt.hexToBytes(&expected, "99d8b5c54669807e9fc70df1");
     try testing.expectEqualSlices(u8, expected[0..base_nonce.len], base_nonce.constSlice());
 
+    // exporter_secret:
+    // f048d55eacbf60f9c6154bd4021774d1075ebf963c6adc71fa846f183ab2dde6
     var exporter_secret = client_ctx.ctx.exporter_secret;
     _ = try fmt.hexToBytes(&expected, "f048d55eacbf60f9c6154bd4021774d1075ebf963c6adc71fa846f183ab2dde6");
     try testing.expectEqualSlices(u8, expected[0..exporter_secret.len], exporter_secret.constSlice());
 
     var server_ctx = try suite.createAuthenticatedServerContext(client_kp.public_key.constSlice(), encapsulated_secret.encapsulated.constSlice(), server_kp, &info, psk);
+
+    // sequence number: 0
+    // pt: 4265617574792069732074727574682c20747275746820626561757479
+    // aad: 436f756e742d30
+    // nonce: 99d8b5c54669807e9fc70df1
+    // ct: a84c64df1e11d8fd11450039d4fe64ff0c8a99fca0bd72c2d4c3e0400bc14a40
+    // f27e45e141a24001697737533e
+    var message: [29]u8 = undefined;
+    _ = try fmt.hexToBytes(&message, "4265617574792069732074727574682c20747275746820626561757479");
+    var ad: [7]u8 = undefined;
+    _ = try fmt.hexToBytes(&ad, "436f756e742d30");
+    var ciphertext: [max_aead_tag_length + message.len]u8 = undefined;
+    client_ctx.encryptToServer(&ciphertext, &message, &ad);
+    var ct: [45]u8 = undefined;
+    _ = try fmt.hexToBytes(&ct, "a84c64df1e11d8fd11450039d4fe64ff0c8a99fca0bd72c2d4c3e0400bc14a40f27e45e141a24001697737533e");
+    try testing.expectEqualSlices(u8, &ct, &ciphertext);
+
+    var message2: [29]u8 = undefined;
+    try server_ctx.decryptFromClient(&message2, &ciphertext, &ad);
+    try testing.expectEqualSlices(u8, message[0..], message2[0..]);
+
+    // sequence number: 1
+    // pt: 4265617574792069732074727574682c20747275746820626561757479
+    // aad: 436f756e742d31
+    // nonce: 99d8b5c54669807e9fc70df0
+    // ct: 4d19303b848f424fc3c3beca249b2c6de0a34083b8e909b6aa4c3688505c05ff
+    // e0c8f57a0a4c5ab9da127435d9
+    _ = try fmt.hexToBytes(&message, "4265617574792069732074727574682c20747275746820626561757479");
+    _ = try fmt.hexToBytes(&ad, "436f756e742d31");
+    client_ctx.encryptToServer(&ciphertext, &message, &ad);
+    _ = try fmt.hexToBytes(&ct, "4d19303b848f424fc3c3beca249b2c6de0a34083b8e909b6aa4c3688505c05ffe0c8f57a0a4c5ab9da127435d9");
+    try testing.expectEqualSlices(u8, &ct, &ciphertext);
+
+    try server_ctx.decryptFromClient(&message2, &ciphertext, &ad);
+    try testing.expectEqualSlices(u8, message[0..], message2[0..]);
+
+    // sequence number: 2
+    // pt: 4265617574792069732074727574682c20747275746820626561757479
+    // aad: 436f756e742d32
+    // nonce: 99d8b5c54669807e9fc70df3
+    // ct: 0c085a365fbfa63409943b00a3127abce6e45991bc653f182a80120868fc507e
+    // 9e4d5e37bcc384fc8f14153b24
+    _ = try fmt.hexToBytes(&message, "4265617574792069732074727574682c20747275746820626561757479");
+    _ = try fmt.hexToBytes(&ad, "436f756e742d32");
+    client_ctx.encryptToServer(&ciphertext, &message, &ad);
+    _ = try fmt.hexToBytes(&ct, "0c085a365fbfa63409943b00a3127abce6e45991bc653f182a80120868fc507e9e4d5e37bcc384fc8f14153b24");
+    try testing.expectEqualSlices(u8, &ct, &ciphertext);
+    
+    try server_ctx.decryptFromClient(&message2, &ciphertext, &ad);
+    try testing.expectEqualSlices(u8, message[0..], message2[0..]);
+    
+    // skip
+    client_ctx.encryptToServer(&ciphertext, &message, &ad);
+
+    try server_ctx.decryptFromClient(&message2, &ciphertext, &ad);
+    try testing.expectEqualSlices(u8, message[0..], message2[0..]);
+
+    // sequence number: 4
+    // pt: 4265617574792069732074727574682c20747275746820626561757479
+    // aad: 436f756e742d34
+    // nonce: 99d8b5c54669807e9fc70df5
+    // ct: 000a3cd3a3523bf7d9796830b1cd987e841a8bae6561ebb6791a3f0e34e89a4f
+    // b539faeee3428b8bbc082d2c1a    
+
+    _ = try fmt.hexToBytes(&message, "4265617574792069732074727574682c20747275746820626561757479");
+    _ = try fmt.hexToBytes(&ad, "436f756e742d34");
+    client_ctx.encryptToServer(&ciphertext, &message, &ad);
+    _ = try fmt.hexToBytes(&ct, "000a3cd3a3523bf7d9796830b1cd987e841a8bae6561ebb6791a3f0e34e89a4fb539faeee3428b8bbc082d2c1a");
+    try testing.expectEqualSlices(u8, &ct, &ciphertext);
+
+    try server_ctx.decryptFromClient(&message2, &ciphertext, &ad);
+    try testing.expectEqualSlices(u8, message[0..], message2[0..]);
+
+    // skip
+    var end: u32 = 254;
+    var i: u32 = 4;
+    while (i < end): (i += 1) {
+        client_ctx.encryptToServer(&ciphertext, &message, &ad);
+        try server_ctx.decryptFromClient(&message2, &ciphertext, &ad);
+        try testing.expectEqualSlices(u8, message[0..], message2[0..]);
+    }
+
+    // var counter = client_ctx.ctx.outbound_state.?.counter;
+    // std.debug.print("{s}\n", .{std.fmt.fmtSliceHexLower(counter.constSlice())});
+
+    // sequence number: 255
+    // pt: 4265617574792069732074727574682c20747275746820626561757479
+    // aad: 436f756e742d323535
+    // nonce: 99d8b5c54669807e9fc70d0e
+    // ct: 576d39dd2d4cc77d1a14a51d5c5f9d5e77586c3d8d2ab33bdec6379e28ce5c50
+    // 2f0b1cbd09047cf9eb9269bb52
+    _ = try fmt.hexToBytes(&message, "4265617574792069732074727574682c20747275746820626561757479");
+    var ad2: [9]u8 = undefined;
+    _ = try fmt.hexToBytes(&ad2, "436f756e742d323535");
+    client_ctx.encryptToServer(&ciphertext, &message, &ad2);
+    _ = try fmt.hexToBytes(&ct, "576d39dd2d4cc77d1a14a51d5c5f9d5e77586c3d8d2ab33bdec6379e28ce5c502f0b1cbd09047cf9eb9269bb52");
+    try testing.expectEqualSlices(u8, &ct, &ciphertext);
+
+    try server_ctx.decryptFromClient(&message2, &ciphertext, &ad2);
+    try testing.expectEqualSlices(u8, message[0..], message2[0..]);
+
+    // sequence number: 256
+    // pt: 4265617574792069732074727574682c20747275746820626561757479
+    // aad: 436f756e742d323536
+    // nonce: 99d8b5c54669807e9fc70cf1
+    // ct: 13239bab72e25e9fd5bb09695d23c90a24595158b99127505c8a9ff9f127e0d6
+    // 57f71af59d67d4f4971da028f9
+    _ = try fmt.hexToBytes(&message, "4265617574792069732074727574682c20747275746820626561757479");
+    _ = try fmt.hexToBytes(&ad2, "436f756e742d323536");
+    client_ctx.encryptToServer(&ciphertext, &message, &ad2);
+    _ = try fmt.hexToBytes(&ct, "13239bab72e25e9fd5bb09695d23c90a24595158b99127505c8a9ff9f127e0d657f71af59d67d4f4971da028f9");
+    try testing.expectEqualSlices(u8, &ct, &ciphertext);
+
+    try server_ctx.decryptFromClient(&message2, &ciphertext, &ad2);
+    try testing.expectEqualSlices(u8, message[0..], message2[0..]);
 
     // exporter_context:
     // L: 32
